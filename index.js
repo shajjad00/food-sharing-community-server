@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const app = express();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const port = process.env.PORT || 5001;
 
@@ -26,6 +26,18 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
+    //add foods to collection
+
+    app.post("/foods", async (req, res) => {
+      try {
+        const foods = req.body;
+        const result = await foodsCollection.insertOne(foods);
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
     //get all foods
 
     app.get("/foods", async (req, res) => {
@@ -47,6 +59,19 @@ async function run() {
           .limit(6)
           .toArray();
 
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    //get single food
+
+    app.get("/foods/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await foodsCollection.findOne(query);
         res.send(result);
       } catch (err) {
         console.log(err);
