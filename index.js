@@ -37,6 +37,22 @@ async function run() {
       }
     });
 
+    //get top 6 foods
+
+    app.get("/featuredFood", async (req, res) => {
+      try {
+        const result = await foodsCollection
+          .find()
+          .sort({ foodQuantity: -1 })
+          .limit(6)
+          .toArray();
+
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
