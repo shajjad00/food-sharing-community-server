@@ -21,6 +21,10 @@ const client = new MongoClient(uri, {
   },
 });
 const foodsCollection = client.db("foodSharingDB").collection("foods");
+
+const requestedFoodsCollection = client
+  .db("foodRequestDB")
+  .collection("requestedFood");
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
@@ -124,6 +128,19 @@ async function run() {
         console.log(err);
       }
     });
+
+    //add requested food to DB
+
+    app.post("/requestedFood", async (req, res) => {
+      try {
+        const requestedFood = req.body;
+        const result = await requestedFoodsCollection.insertOne(requestedFood);
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
