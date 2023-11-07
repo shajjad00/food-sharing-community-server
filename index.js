@@ -38,6 +38,21 @@ async function run() {
       }
     });
 
+    //get foods by specific user
+
+    app.get("/manage/:email", async (req, res) => {
+      try {
+        const userEmail = req.params.email;
+
+        const query = { email: userEmail };
+        const result = await foodsCollection.find(query).toArray();
+
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
     //get all foods
 
     app.get("/foods", async (req, res) => {
@@ -72,6 +87,25 @@ async function run() {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
         const result = await foodsCollection.findOne(query);
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    //update food
+
+    app.patch("/foods/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updateFoodData = req.body;
+        const filter = { _id: new ObjectId(id) };
+        const updateDoc = {
+          $set: {
+            ...updateFoodData,
+          },
+        };
+        const result = await foodsCollection.updateOne(filter, updateDoc);
         res.send(result);
       } catch (err) {
         console.log(err);
