@@ -141,6 +141,33 @@ async function run() {
       }
     });
 
+    //get requested food
+
+    app.get("/requestedFood/:email", async (req, res) => {
+      try {
+        const userEmail = req.params.email;
+        const query = { requesterEmail: userEmail };
+        const result = await requestedFoodsCollection.find(query).toArray();
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    // cancel requested food
+
+    app.delete("/requestedFood/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: id };
+        const result = await requestedFoodsCollection.deleteOne(query);
+        res.send(result);
+        console.log(id);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
