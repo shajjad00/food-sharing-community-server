@@ -2,13 +2,38 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const app = express();
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const port = process.env.PORT || 5001;
 
 //middleware
-app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+    credentials: true,
+  })
+);
+
+//verify middleware
+
+const verifyToken = (req, res, next) => {
+  const token = req?.cookies?.token;
+  console.log("cook cook cookies", token);
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "unauthorized access" });
+    }
+    req.user = decoded;
+    next();
+  });
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.c6bnaja.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -30,6 +55,38 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
+    //authentication related
+
+    app.post("/jwt", async (req, res) => {
+      try {
+        const user = req.body;
+        console.log(user);
+        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+          expiresIn: "1h",
+        });
+        res
+          .cookie("token", token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+          })
+          .send({ success: true });
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    app.post("/logout", async (req, res) => {
+      try {
+        const user = req.body;
+        res.clearCookie("token", { maxAge: 0 }).send({ success: true });
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    //database related
+
     //add foods to collection
 
     app.post("/foods", async (req, res) => {
@@ -44,7 +101,7 @@ async function run() {
 
     //get foods by specific user
 
-    app.get("/manage/:email", async (req, res) => {
+    app.get("/manage/:email", verifyToken, async (req, res) => {
       try {
         const userEmail = req.params.email;
 
@@ -59,7 +116,7 @@ async function run() {
 
     //get all foods
 
-    app.get("/foods", async (req, res) => {
+    app.get("/foods", verifyToken, async (req, res) => {
       try {
         const result = await foodsCollection.find().toArray();
         res.send(result);
@@ -70,7 +127,7 @@ async function run() {
 
     //get top 6 foods
 
-    app.get("/featuredFood", async (req, res) => {
+    app.get("/featuredFood", verifyToken, async (req, res) => {
       try {
         const result = await foodsCollection
           .find()
@@ -86,7 +143,7 @@ async function run() {
 
     //get single food
 
-    app.get("/foods/:id", async (req, res) => {
+    app.get("/foods/:id", verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
@@ -130,20 +187,30 @@ async function run() {
     });
 
     //add requested food to DB
+    requestedFoodsCollection.createIndex(
+      { foodId: 1, requesterEmail: 1 },
+      { unique: true }
+    );
 
-    app.post("/requestedFood", async (req, res) => {
+    app.post("/requestedFood", verifyToken, async (req, res) => {
       try {
         const requestedFood = req.body;
         const result = await requestedFoodsCollection.insertOne(requestedFood);
         res.send(result);
       } catch (err) {
-        console.log(err);
+        if (err.code === 11000) {
+          // Handle duplicate key error (user already requested the same food item)
+          res.send("User has already requested this food item.");
+        } else {
+          // Handle other errors
+          console.error(err);
+        }
       }
     });
 
-    //get requested food email
+    //get requested food by email
 
-    app.get("/requestedFoods/:email", async (req, res) => {
+    app.get("/requestedFoods/:email", verifyToken, async (req, res) => {
       try {
         const userEmail = req.params.email;
         const query = { requesterEmail: userEmail };
@@ -156,12 +223,11 @@ async function run() {
 
     //get requested food by id
 
-    app.get("/requestedFood/:id", async (req, res) => {
+    app.get("/requestedFood/:id", verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
-        const query = { _id: id };
+        const query = { foodId: id };
         const result = await requestedFoodsCollection.findOne(query);
-        console.log(id);
         res.send(result);
       } catch (err) {
         console.log(err);
@@ -173,10 +239,9 @@ async function run() {
     app.delete("/requestedFood/:id", async (req, res) => {
       try {
         const id = req.params.id;
-        const query = { _id: id };
+        const query = { _id: new ObjectId(id) };
         const result = await requestedFoodsCollection.deleteOne(query);
         res.send(result);
-        console.log(id);
       } catch (err) {
         console.log(err);
       }
@@ -184,23 +249,21 @@ async function run() {
 
     //update status
 
-    app.put("/requestedFood/:id", async (req, res) => {
+    app.patch("/requestedFoodItem/:foodId", async (req, res) => {
       try {
-        const id = req.params.id;
-        const updateStatus = req.body.status;
-        console.log(id);
-        const query = { _id: id };
-        const options = { upsert: true };
+        const id = req.params.foodId;
+        const updateStatus = req.body;
+
+        const query = { foodId: id };
         const updateDoc = {
           $set: {
-            status: updateStatus,
+            status: updateStatus.status,
           },
         };
-        console.log(updateStatus.status);
+
         const result = await requestedFoodsCollection.updateOne(
           query,
-          updateDoc,
-          options
+          updateDoc
         );
         res.send(result);
       } catch (err) {
