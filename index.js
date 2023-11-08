@@ -141,13 +141,27 @@ async function run() {
       }
     });
 
-    //get requested food
+    //get requested food email
 
-    app.get("/requestedFood/:email", async (req, res) => {
+    app.get("/requestedFoods/:email", async (req, res) => {
       try {
         const userEmail = req.params.email;
         const query = { requesterEmail: userEmail };
         const result = await requestedFoodsCollection.find(query).toArray();
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    //get requested food by id
+
+    app.get("/requestedFood/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: id };
+        const result = await requestedFoodsCollection.findOne(query);
+        console.log(id);
         res.send(result);
       } catch (err) {
         console.log(err);
@@ -163,6 +177,32 @@ async function run() {
         const result = await requestedFoodsCollection.deleteOne(query);
         res.send(result);
         console.log(id);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
+    //update status
+
+    app.put("/requestedFood/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const updateStatus = req.body.status;
+        console.log(id);
+        const query = { _id: id };
+        const options = { upsert: true };
+        const updateDoc = {
+          $set: {
+            status: updateStatus,
+          },
+        };
+        console.log(updateStatus.status);
+        const result = await requestedFoodsCollection.updateOne(
+          query,
+          updateDoc,
+          options
+        );
+        res.send(result);
       } catch (err) {
         console.log(err);
       }
