@@ -22,7 +22,6 @@ app.use(
 
 const verifyToken = (req, res, next) => {
   const token = req?.cookies?.token;
-  console.log("cook cook cookies", token);
   if (!token) {
     return res.status(401).send({ message: "unauthorized access" });
   }
@@ -60,7 +59,6 @@ async function run() {
     app.post("/jwt", async (req, res) => {
       try {
         const user = req.body;
-        console.log(user);
         const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
           expiresIn: "1h",
         });
@@ -101,7 +99,7 @@ async function run() {
 
     //get foods by specific user
 
-    app.get("/manage/:email", verifyToken, async (req, res) => {
+    app.get("/manage/:email", async (req, res) => {
       try {
         const userEmail = req.params.email;
 
@@ -116,7 +114,7 @@ async function run() {
 
     //get all foods
 
-    app.get("/foods", verifyToken, async (req, res) => {
+    app.get("/foods", async (req, res) => {
       try {
         const result = await foodsCollection.find().toArray();
         res.send(result);
@@ -125,9 +123,28 @@ async function run() {
       }
     });
 
+    //sort food
+    app.get("/foods/sort", async (req, res) => {
+      try {
+        const sortQuery = req.query.sortBy;
+        console.log(sortQuery);
+        let query = {};
+        if (sortQuery.toLowerCase() == "foodName".toLowerCase()) {
+          query = { foodName: 1 };
+        } else if (sortQuery.toLowerCase() == "expiredDateTime".toLowerCase()) {
+          query = { expiredDateTime: 1 };
+        }
+        console.log(sortQuery);
+        const result = await foodsCollection.find().sort(query).toArray();
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
     //get top 6 foods
 
-    app.get("/featuredFood", verifyToken, async (req, res) => {
+    app.get("/featuredFood", async (req, res) => {
       try {
         const result = await foodsCollection
           .find()
@@ -172,7 +189,6 @@ async function run() {
         console.log(err);
       }
     });
-
     //delete food
 
     app.delete("/foods/:id", async (req, res) => {
@@ -223,7 +239,7 @@ async function run() {
 
     //get requested food by id
 
-    app.get("/requestedFood/:id", verifyToken, async (req, res) => {
+    app.get("/requestedFood/:id", async (req, res) => {
       try {
         const id = req.params.id;
         const query = { foodId: id };
